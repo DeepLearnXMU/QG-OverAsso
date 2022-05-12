@@ -4,7 +4,7 @@ DATA_DIR='/data/home/antewang/query-gen/saved_data/woi_data_ext_gen_v2'
 OUTPUT_DIR='/data/home/antewang/query-gen/saved_data'
 
 cd transformers
-CUDA_VISIBLE_DEVICES=0 python examples/pytorch/summarization/run.py \
+CUDA_VISIBLE_DEVICES=0 python examples/pytorch/wizard-of-internet/run.py \
     --model_name_or_path google/t5-v1_1-base \
     --do_train \
     --do_predict \
