@@ -54,7 +54,7 @@ def get_model_input(data):
 for split in ['train', 'valid', 'test']:
     data = []
     max_len = 0
-    with jsonlines.open(f'/cephfs/antewang/wizard_of_interent/{split}.jsonl', 'r') as reader:
+    with jsonlines.open(f'../../saved_data/wizard_of_interent/{split}.jsonl', 'r') as reader:
         for line in reader:
             model_inputs = get_model_input(line)
             data += model_inputs

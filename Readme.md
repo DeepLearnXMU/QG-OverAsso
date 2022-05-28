@@ -1,7 +1,16 @@
-## First extract then generate
+## Multi-view Query Generation
 
-* step 1:  wizard-of-internet dataset can be found at [/cephfs/lfsong/wizard-of-internet]
-* step 2: run data processing script (note the data saved directory)
-* step 3: run training script (note the data and model saved directory)
-* step 4: run test script to get each checkpoint's generated predictions.txt
-* step 5: evaluate model performance (note the file path)
+#### base or explicit-view
+
+* Data preparation: download dataset and run script under ''/data''.
+* Training : scripts for our models are under ''/script''.
+* Predicting: all models can use the same script to generate predictions ''/script/test.sh''.
+* Evaluation: use eval.py under ''/data'' to evaluate.
+
+#### Implicit-View (RAQG)
+
+* Data preparation: use the trained models above to prepare generated candidates. You can use a single model instead of k models for k folds, we find the influence is limited.
+* Training: run train.sh. ''en'' or ''zh'' for the second argument. note the path in config.py.
+* Predicting: run test.sh.
+* Evaluation: use eval.py or eval_zh.py to evaluate.
+

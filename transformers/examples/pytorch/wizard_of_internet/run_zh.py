@@ -228,7 +228,9 @@ class DataTrainingArguments:
     source_prefix: Optional[str] = field(
         default="", metadata={"help": "A prefix to add before every source text (useful for T5 models)."}
     )
-
+    predict_output_file: Optional[str] = field(
+        default="generated_predictions.txt", metadata={"help": "File name of predictions."}
+    )
     forced_bos_token: Optional[str] = field(
         default=None,
         metadata={
@@ -481,24 +483,65 @@ def main():
         inputs, targets = [], []
         for i in range(len(examples[text_column])):
             if examples[text_column][i] is not None and examples[summary_column][i] is not None:
-                inputs.append(examples[text_column][i])
-                targets.append(examples[summary_column][i])
+                if isinstance(examples[summary_column][i], list):
+                    for query in examples[summary_column][i]:
+                        inputs.append(examples[text_column][i])
+                        targets.append(query)
+                else:
+                    inputs.append(examples[text_column][i])
+                    targets.append(examples[summary_column][i])
+
 
         inputs = [prefix + inp for inp in inputs]
         model_inputs = tokenizer(inputs, max_length=data_args.max_source_length, padding=padding, truncation=True)
 
-        # Setup the tokenizer for targets
-        with tokenizer.as_target_tokenizer():
-            labels = tokenizer(targets, max_length=max_target_length, padding=padding, truncation=True)
+        labels = [tokenizer.convert_tokens_to_ids(x) + [tokenizer.eos_token_id] for x in targets]
+        model_inputs["labels"] = labels
 
-        # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
-        # padding in the loss.
-        if padding == "max_length" and data_args.ignore_pad_token_for_loss:
-            labels["input_ids"] = [
-                [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
-            ]
+        # # Setup the tokenizer for targets
+        # with tokenizer.as_target_tokenizer():
+        #     labels = tokenizer(targets, max_length=max_target_length, padding=padding, truncation=True)
+        #
+        # # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
+        # # padding in the loss.
+        # if padding == "max_length" and data_args.ignore_pad_token_for_loss:
+        #     labels["input_ids"] = [
+        #         [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
+        #     ]
+        #
+        # model_inputs["labels"] = labels["input_ids"]
+        return model_inputs
 
-        model_inputs["labels"] = labels["input_ids"]
+    def preprocess_function_v2(examples):
+        # remove pairs where at least one record is None
+
+        inputs, targets = [], []
+        for i in range(len(examples[text_column])):
+            if examples[text_column][i] is not None and examples[summary_column][i] is not None:
+                inputs.append(examples[text_column][i])
+                if isinstance(examples[summary_column][i], list):
+                    targets.append(examples[summary_column][i][0])
+                else:
+                    targets.append(examples[summary_column][i])
+
+        inputs = [prefix + inp for inp in inputs]
+        model_inputs = tokenizer(inputs, max_length=data_args.max_source_length, padding=padding, truncation=True)
+
+        labels = [tokenizer.convert_tokens_to_ids(x) + [tokenizer.eos_token_id] for x in targets]
+        model_inputs["labels"] = labels
+
+        # # Setup the tokenizer for targets
+        # with tokenizer.as_target_tokenizer():
+        #     labels = tokenizer(targets, max_length=max_target_length, padding=padding, truncation=True)
+        #
+        # # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
+        # # padding in the loss.
+        # if padding == "max_length" and data_args.ignore_pad_token_for_loss:
+        #     labels["input_ids"] = [
+        #         [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
+        #     ]
+        #
+        # model_inputs["labels"] = labels["input_ids"]
         return model_inputs
 
     if training_args.do_train:
@@ -543,7 +586,7 @@ def main():
             predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
         with training_args.main_process_first(desc="prediction dataset map pre-processing"):
             predict_dataset = predict_dataset.map(
-                preprocess_function,
+                preprocess_function_v2,
                 batched=True,
                 num_proc=data_args.preprocessing_num_workers,
                 remove_columns=column_names,
@@ -664,7 +707,7 @@ def main():
                     predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
                 )
                 predictions = [pred.strip() for pred in predictions]
-                output_prediction_file = os.path.join(training_args.output_dir, "generated_predictions.txt")
+                output_prediction_file = os.path.join(training_args.output_dir, data_args.predict_output_file)
                 with open(output_prediction_file, "w") as writer:
                     writer.write("\n".join(predictions))
 

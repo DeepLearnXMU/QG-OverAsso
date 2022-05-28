@@ -885,7 +885,7 @@ class Trainer:
             optimizer_cls = Adafactor
             optimizer_kwargs.update({"scale_parameter": False, "relative_step": False})
         elif args.optim == OptimizerNames.ADAMW_HF:
-            from transformers.optimization import AdamW
+            from .optimization import AdamW
 
             optimizer_cls = AdamW
             optimizer_kwargs.update(adam_kwargs)
@@ -1395,12 +1395,6 @@ class Trainer:
 
             step = -1
             for step, inputs in enumerate(epoch_iterator):
-
-                # step sensitive #
-                def calculate_mask_ratio_with_step(step):
-                    return min(1, round(math.log(max(step / self.args.cl_beg, 1), self.args.cl_end / self.args.cl_beg), 2))
-                inputs['mask_ratio'] = calculate_mask_ratio_with_step(self.state.global_step)
-                # --- #
 
                 # Skip past any already trained steps if resuming training
                 if steps_trained_in_current_epoch > 0:
@@ -2555,9 +2549,11 @@ class Trainer:
         # Number of losses has been rounded to a multiple of batch_size and in a distributed training, the number of
         # samplers has been rounded to a multiple of batch_size, so we truncate.
         if all_losses is not None:
-            all_losses = all_losses[:num_samples]
+            # all_losses = all_losses[:num_samples]
+            all_losses = None
         if all_preds is not None:
-            all_preds = nested_truncate(all_preds, num_samples)
+            # all_preds = nested_truncate(all_preds, num_samples)
+            all_preds = all_preds
         if all_labels is not None:
             all_labels = nested_truncate(all_labels, num_samples)
         if all_inputs is not None:

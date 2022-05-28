@@ -18,53 +18,6 @@ def word_tokenize(text):
     lemmas = [token.lemma_ for token in doc]
     return tokens, lemmas
 
-def get_common_spans(s1, s2):
-
-    len_s1 = len(s1)
-    len_s2 = len(s2)
-    record = [[0 for i in range(len_s2 + 1)] for j in range(len_s1 + 1)]
-
-    maxNum = 0
-
-    for i in range(len_s1):
-        for j in range(len_s2):
-            if s1[i] == s2[j]:
-                record[i + 1][j + 1] = record[i][j] + 1
-                if record[i + 1][j + 1] > maxNum:
-                    maxNum = record[i + 1][j + 1]
-
-    record = np.array(record)
-    labels = ['O'] * len_s1
-    while True:
-        pos = record.argmax()
-        i, j = pos // (len_s2 + 1), pos % (len_s2 + 1)
-        maxNum = record[i][j]
-        if maxNum > 0 and not all([True if x in stop_words else False for x in s1[i - maxNum: i]]):
-            labels[i - maxNum: i] = ['I'] * maxNum
-            record[:, j + 1 - maxNum: j + 1] = 0
-        else:
-            break
-
-    return labels
-
-def get_spans(s1, label_lists):
-    labels = ['O'] * len(label_lists[0])
-    for x in label_lists:
-        for i, y in enumerate(x):
-            if y == 'I':
-                labels[i] = 'I'
-    output = []
-    cur_str = []
-    for x, y in zip(s1, labels):
-        if y == 'I':
-            cur_str.append(x)
-        elif cur_str:
-            output.append(' '.join(cur_str))
-            cur_str = []
-    if cur_str:
-        output.append(' '.join(cur_str))
-    return output
-
 def delete_enter(text):
     return ' '.join([x.strip() for x in text.split('\n')])
 
@@ -116,39 +69,74 @@ def get_model_input(data):
     # postprocess
     final_output = []
     for x in model_input:
-        context, lemmas = word_tokenize(x['dialogue'])
+        context_tokens, context_lemmas = word_tokenize(x['dialogue'])
         queries = x['query']
-        labels, mixed_queries = [], []
+        mixed_queries = set()
         for query in queries:
+            query_tokens, query_lemmas = word_tokenize(query)
             if query != 'none':
-                labels.append(get_common_spans(lemmas, word_tokenize(query)[1]))
-        extracted_prefix = ''
-        if labels:
-            output = get_spans(context, labels)
-            extracted_prefix = ', '.join(output)
-        for query in queries:
-            mixed_queries.append(' | '.join([extracted_prefix, query]))
-        final_output.append({'dialogue': x['dialogue'], 'query': mixed_queries})
+                template = []
+                is_stopwords = []
+                for qt, ql in zip(query_tokens, query_lemmas):
+                    if ql in context_lemmas or qt in context_lemmas or qt in stop_words:
+                        if qt in stop_words:
+                            is_stopwords.append(1)
+                        else:
+                            is_stopwords.append(0)
+                        template.append(qt)
+                    elif len(template) == 0 or template[-1] != '<extra_id_0>':
+                        is_stopwords.append(2)
+                        template.append('<extra_id_0>')
+                # forward
+                for i in range(1, len(is_stopwords)):
+                    if is_stopwords[i - 1] == 0 and is_stopwords[i] == 1:
+                        is_stopwords[i] = 0
+                # backward
+                for i in list(range(0, len(is_stopwords) -1))[::-1]:
+                    if is_stopwords[i + 1] == 0 and is_stopwords[i] == 1:
+                        is_stopwords[i] = 0
+                new_template = []
+                for i in range(len(is_stopwords)):
+                    if is_stopwords[i] == 0:
+                        new_template.append(template[i])
+                    elif is_stopwords[i] == 2 and (len(new_template) == 0 or new_template[-1] != '<extra_id_0>'):
+                        new_template.append(template[i])
+                mixed_queries.add(f"{' '.join(new_template)} | {query}")
+        final_output.append({'dialogue': x['dialogue'], 'query': list(mixed_queries)})
     return final_output
 
+k_fold = 3
+output_dir = f'../../saved_data/woi_data_tpl_gen_{k_fold}f'
+
 import os
-if not os.path.exists('../../saved_data/woi_data_ext_gen_v2'):
-    os.mkdir('../../saved_data/woi_data_ext_gen_v2')
+if not os.path.exists(output_dir):
+    os.mkdir(output_dir)
 
 for split in ['valid', 'test', 'train']:
     data = []
     max_len = 0
-    with jsonlines.open(f'/cephfs/antewang/wizard_of_interent/{split}.jsonl', 'r') as reader:
+    with jsonlines.open(f'../../saved_data/wizard_of_interent/{split}.jsonl', 'r') as reader:
         for line in reader:
             model_inputs = get_model_input(line)
             data += model_inputs
             max_len = max(max_len, len(tokenizer.tokenize(data[-1]['dialogue'])))
     print(len(data), max_len)
+
     # postprocess
     for x in data:
         if len(x['query']) == 0:
             x['query'].append('none')
-    output_file = f'../../saved_data/woi_data_ext_gen_v2/{split}.json'
+    if split == 'train':
+        for i in range(k_fold):
+            with jsonlines.open(f'{output_dir}/{split}_{i}.json', 'w') as writer:
+                for j in range(len(data)):
+                    if j % k_fold != i:
+                        writer.write(data[j])
+            with jsonlines.open(f'{output_dir}/{split}_{i}_.json', 'w') as writer:
+                for j in range(len(data)):
+                    if j % k_fold == i:
+                        writer.write(data[j])
+    output_file = f'{output_dir}/{split}.json'
     with jsonlines.open(output_file, 'w') as writer:
         for x in data:
             writer.write(x)

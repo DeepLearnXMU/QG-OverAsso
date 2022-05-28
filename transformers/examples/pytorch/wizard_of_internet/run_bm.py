@@ -20,6 +20,7 @@ Fine-tuning the library models for sequence to sequence.
 
 import logging
 import os
+import re
 import sys
 from dataclasses import dataclass, field
 from typing import Optional
@@ -238,6 +239,7 @@ class DataTrainingArguments:
             "needs to be the target language token (Usually it is the target language token)"
         },
     )
+    skip_special_tokens: bool = field(default=False)
 
     def __post_init__(self):
         if self.dataset_name is None and self.train_file is None and self.validation_file is None:
@@ -515,18 +517,21 @@ def main():
         inputs = [prefix + inp for inp in inputs]
         model_inputs = tokenizer(inputs, max_length=data_args.max_source_length, padding=padding, truncation=True)
 
-        # Setup the tokenizer for targets
-        with tokenizer.as_target_tokenizer():
-            labels = tokenizer(targets, max_length=max_target_length, padding=padding, truncation=True)
+        labels = [tokenizer.convert_tokens_to_ids(x) + [tokenizer.eos_token_id] for x in targets]
+        model_inputs["labels"] = labels
 
-        # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
-        # padding in the loss.
-        if padding == "max_length" and data_args.ignore_pad_token_for_loss:
-            labels["input_ids"] = [
-                [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
-            ]
-
-        model_inputs["labels"] = labels["input_ids"]
+        # # Setup the tokenizer for targets
+        # with tokenizer.as_target_tokenizer():
+        #     labels = tokenizer(targets, max_length=max_target_length, padding=padding, truncation=True)
+        #
+        # # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
+        # # padding in the loss.
+        # if padding == "max_length" and data_args.ignore_pad_token_for_loss:
+        #     labels["input_ids"] = [
+        #         [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
+        #     ]
+        #
+        # model_inputs["labels"] = labels["input_ids"]
         return model_inputs
 
     if training_args.do_train:
@@ -686,12 +691,17 @@ def main():
         trainer.log_metrics("predict", metrics)
         trainer.save_metrics("predict", metrics)
 
+        def remove_special_tokens(text):
+            return re.sub('</s>', '', re.sub('<pad>', '', text)).strip()
+
         if trainer.is_world_process_zero():
             if training_args.predict_with_generate:
                 predictions = tokenizer.batch_decode(
-                    predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
+                    predict_results.predictions, skip_special_tokens=data_args.skip_special_tokens,
+                    clean_up_tokenization_spaces=True
                 )
-                predictions = [pred.strip() for pred in predictions]
+                predictions = [remove_special_tokens(pred).strip() for pred in predictions]
+                # predictions = [pred.strip() for pred in predictions]
                 output_prediction_file = os.path.join(training_args.output_dir, data_args.predict_output_file)
                 with open(output_prediction_file, "w") as writer:
                     writer.write("\n".join(predictions))

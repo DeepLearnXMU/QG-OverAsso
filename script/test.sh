@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
-for step in 1000 2000 3000 4000 5000 6000 7000 8000 9000
+for step in 1000 2000 3000 4000 5000 6000 7000 8000
 do
-  DATA_DIR='/data/home/antewang/query-gen/saved_data/woi_data_ext_gen_v2'
-  MODEL_DIR=/data/home/antewang/query-gen/saved_data/t5-v1_1-base-ext-gen-v2/checkpoint-${step}
+  DATA_DIR='../saved_data/woi_data_np'
+  MODEL_DIR=../t5-v1_1-base/checkpoint-${step}
 
   cd transformers
-  CUDA_VISIBLE_DEVICES=1 python examples/pytorch/summarization/run.py \
+  CUDA_VISIBLE_DEVICES=2 python examples/pytorch/wizard_of_internet/run.py \
       --model_name_or_path $MODEL_DIR \
       --do_predict \
       --train_file "$DATA_DIR/train.json" \
@@ -22,8 +22,7 @@ do
       --text_column="dialogue" \
       --summary_column="query" \
       --save_steps=30000 \
-      --max_target_length 50 \
+      --max_target_length 64 \
       --num_beams 4 \
-      --generation_num_beams 4 \
-      --predict_output_file "generated_predictions.txt"
+      --generation_num_beams 4
 done
