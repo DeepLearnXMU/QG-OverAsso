@@ -27,7 +27,7 @@ from typing import Optional
 import datasets
 import nltk  # Here to have a nice missing dependency error message early on
 import numpy as np
-from datasets import load_dataset, load_metric
+from datasets import load_dataset, load_metric, Dataset
 
 import transformers
 from filelock import FileLock
@@ -90,7 +90,7 @@ class QueryProducer(Resource):
             return {}
 
         dialogue = ' '.join(dialog_turns)
-        input_dict = [{'dialogue': dialogue, 'query': ''}]
+        input_dict = {'dialogue': [dialogue], 'query': ['None']}
         parse(input_dict)
 
 api.add_resource(QueryProducer, '/qp')
@@ -344,7 +344,7 @@ def parse(input_dict: dict):
         inputs = [prefix + inp for inp in inputs]
         model_inputs = tokenizer(inputs, max_length=data_args.max_source_length, padding=padding, truncation=True)
 
-        labels = [tokenizer.convert_tokens_to_ids(x) + [tokenizer.eos_token_id] for x in targets]
+        labels = [[tokenizer.eos_token_id] for x in targets] # tokenizer.convert_tokens_to_ids(x) + [tokenizer.eos_token_id] for x in targets]
         model_inputs["labels"] = labels
 
         # # Setup the tokenizer for targets
@@ -360,6 +360,21 @@ def parse(input_dict: dict):
         #
         # model_inputs["labels"] = labels["input_ids"]
         return model_inputs
+
+    prefix = data_args.source_prefix if data_args.source_prefix is not None else ""
+
+    # Preprocessing the datasets.
+    # We need to tokenize inputs and targets.
+    column_names = ['dialogue', 'query']
+    #if training_args.do_train:
+    #    column_names = raw_datasets["train"].column_names
+    #elif training_args.do_eval:
+    #    column_names = raw_datasets["validation"].column_names
+    #elif training_args.do_predict:
+    #    column_names = raw_datasets["test"].column_names
+    #else:
+    #    logger.info("There is nothing to do. Please pass `do_train`, `do_eval` and/or `do_predict`.")
+    #    return
 
     # Get the column names for input/target.
     dataset_columns = summarization_name_mapping.get(data_args.dataset_name, None)
@@ -380,7 +395,7 @@ def parse(input_dict: dict):
                 f"--summary_column' value '{data_args.summary_column}' needs to be one of: {', '.join(column_names)}"
             )
 
-    predict_datasets = Dataset.from_dict(input_dict)
+    predict_dataset = Dataset.from_dict(input_dict)
 
     padding = "max_length" if data_args.pad_to_max_length else False
 
@@ -461,6 +476,28 @@ def parse(input_dict: dict):
     return predictions
 
 def main():
+    pass
+
+def _mp_fn(index):
+    # For xla_spawn (TPUs)
+    main()
+
+
+if __name__ == "__main__":
+    # See all possible arguments in src/transformers/training_args.py
+    # or by passing the --help flag to this script.
+    # We now keep distinct sets of args, for a cleaner separation of concerns.
+
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments))
+    if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
+        # If we pass only one argument to the script and it's the path to a json file,
+        # let's parse it to get our arguments.
+        model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+    else:
+        model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+
+    assert not training_args.do_train and not training_args.do_eval, "This is only for query production service"
+
     # Setup logging
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
@@ -568,21 +605,6 @@ def main():
                 "resize the model's position encodings by passing `--resize_position_embeddings`."
             )
 
-    prefix = data_args.source_prefix if data_args.source_prefix is not None else ""
-
-    # Preprocessing the datasets.
-    # We need to tokenize inputs and targets.
-    column_names = ['', '']
-    #if training_args.do_train:
-    #    column_names = raw_datasets["train"].column_names
-    #elif training_args.do_eval:
-    #    column_names = raw_datasets["validation"].column_names
-    #elif training_args.do_predict:
-    #    column_names = raw_datasets["test"].column_names
-    #else:
-    #    logger.info("There is nothing to do. Please pass `do_train`, `do_eval` and/or `do_predict`.")
-    #    return
-
     if isinstance(tokenizer, tuple(MULTILINGUAL_TOKENIZERS)):
         assert (
             data_args.lang is not None
@@ -598,32 +620,10 @@ def main():
         )
         model.config.forced_bos_token_id = forced_bos_token_id
 
-
     if training_args.label_smoothing_factor > 0 and not hasattr(model, "prepare_decoder_input_ids_from_labels"):
         logger.warning(
             "label_smoothing is enabled but the `prepare_decoder_input_ids_from_labels` method is not defined for"
             f"`{model.__class__.__name__}`. This will lead to loss being calculated twice and will take up more memory"
         )
 
-
-def _mp_fn(index):
-    # For xla_spawn (TPUs)
-    main()
-
-
-if __name__ == "__main__":
-    # See all possible arguments in src/transformers/training_args.py
-    # or by passing the --help flag to this script.
-    # We now keep distinct sets of args, for a cleaner separation of concerns.
-
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments))
-    if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
-        # If we pass only one argument to the script and it's the path to a json file,
-        # let's parse it to get our arguments.
-        model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
-    else:
-        model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-
-    assert not training_args.do_train and not training_args.do_eval, "This is only for query production service"
-
-    main()
+    app.run(host='0.0.0.0', port=2209)
