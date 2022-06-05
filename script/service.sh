@@ -4,7 +4,7 @@ DATA_DIR='../saved_data/woi_data_np'
 MODEL_DIR=../model_zh/
 
 cd transformers
-CUDA_VISIBLE_DEVICES=2 python examples/pytorch/wizard_of_internet/service.py \
+CUDA_VISIBLE_DEVICES=4 python examples/pytorch/wizard_of_internet/service.py \
     --model_name_or_path $MODEL_DIR \
     --do_predict \
     --train_file "$DATA_DIR/train.json" \

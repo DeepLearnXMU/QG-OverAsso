@@ -91,7 +91,9 @@ class QueryProducer(Resource):
 
         dialogue = ' '.join(dialog_turns)
         input_dict = {'dialogue': [dialogue], 'query': ['None']}
-        parse(input_dict)
+        query = parse(input_dict)[0]
+        logger.info(query)
+        return query
 
 api.add_resource(QueryProducer, '/qp')
 
@@ -471,7 +473,6 @@ def parse(input_dict: dict):
                 predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
             )
             predictions = [pred.strip() for pred in predictions]
-            print(predictions)
 
     return predictions
 
