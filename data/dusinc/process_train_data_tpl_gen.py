@@ -15,7 +15,8 @@ with open('cn_stopwords.txt', 'r') as f:
 
 def word_tokenize(text):
     text = re.sub('\s+', '', text)
-    return [x for x in tokenizer.tokenize(text) if x != tokenizer.convert_ids_to_tokens([259])[0]]
+    token_ids = tokenizer.tokenize(text)
+    return token_ids
 
 def get_common_spans(s1, s2):
     len_s1 = len(s1)
@@ -67,7 +68,7 @@ def get_spans(s1, label_lists):
 
 
 # dialogue history -> search query
-def preprocess(file_path):
+def preprocess(file_path, output_path):
     data = []
     template = Template('${role}：${text}')
     length, target_length = [], []
@@ -125,18 +126,63 @@ def preprocess(file_path):
             target_length.append(len(tokenizer.tokenize(query)))
     print(max(length), max(target_length))
     print(len(data))
-    return data
 
+    # postprocess
+    final_output = []
+    for x in data:
+        context_tokens = word_tokenize(x['dialogue'])
+        queries = x['query']
+        mixed_queries = []
+        for query in queries:
+            query_tokens = word_tokenize(query)
+            if query != '不检索':
+                template = []
+                is_stopwords = []
+                for qt in query_tokens[2:]:
+                    if qt in context_tokens or qt in stopwords:
+                        if qt in stopwords:
+                            is_stopwords.append(1)
+                        else:
+                            is_stopwords.append(0)
+                        template.append(qt)
+                    elif len(template) == 0 or template[-1] != '<extra_id_0>':
+                        is_stopwords.append(2)
+                        template.append('<extra_id_0>')
+                # forward
+                for i in range(1, len(is_stopwords)):
+                    if is_stopwords[i - 1] == 0 and is_stopwords[i] == 1:
+                        is_stopwords[i] = 0
+                # backward
+                for i in list(range(0, len(is_stopwords) - 1))[::-1]:
+                    if is_stopwords[i + 1] == 0 and is_stopwords[i] == 1:
+                        is_stopwords[i] = 0
+                new_template = query_tokens[:2]
+                for i in range(len(is_stopwords)):
+                    if is_stopwords[i] == 0:
+                        new_template.append(template[i])
+                    elif is_stopwords[i] == 2 and (len(new_template) == 2 or new_template[-1] != '<extra_id_0>'):
+                        new_template.append(template[i])
+                # mixed_queries.add(f"{' '.join(new_template)} | {query}")
+                mixed_queries.append(new_template + ['；'] + query_tokens)
+            else:
+                mixed_queries.append(word_tokenize(query))
+        final_output.append({'dialogue': x['dialogue'], 'query': mixed_queries})
+
+    with jsonlines.open(output_path, 'w') as writer:
+        for line in final_output:
+            writer.write(line)
+    return final_output
 
 if __name__ == '__main__':
     k_fold = 5
-    output_dir = f'../../saved_data/data_4mz_{k_fold}f'
+    output_dir = '../../saved_data/data_zh_tpl_gen'
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     for split in ['dev', 'train']:
         file_path = f'../../saved_data/DuSinc_release/{split}.txt'
         output_path = f'{output_dir}/{split}.json'
-        data = preprocess(file_path)
+        data = preprocess(file_path, output_path)
+    
         if split == 'train':
             for i in range(k_fold):
                 with jsonlines.open(f'{output_dir}/{split}_{i}.json', 'w') as writer:
@@ -147,9 +193,4 @@ if __name__ == '__main__':
                     for j in range(len(data)):
                         if j % k_fold == i:
                             writer.write(data[j])
-        else:
-            output_file = f'{output_dir}/{split}.json'
-            with jsonlines.open(output_file, 'w') as writer:
-                for x in data:
-                    writer.write(x)
 

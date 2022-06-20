@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-DATA_DIR='../saved_data/data_4mz'
+DATA_DIR='../saved_data/data_zh'
 OUTPUT_DIR='../saved_data'
 STOPWORDS_PATH='examples/pytorch/wizard_of_internet/cn_stopwords.txt'
 
@@ -27,8 +27,7 @@ CUDA_VISIBLE_DEVICES=0 python examples/pytorch/wizard_of_internet/run_w.py \
     --max_target_length 128 \
     --num_beams 4 \
     --generation_num_beams 4 \
-    --prefer_weight 0.4 \
-    --none_weight 0.5 \
+    --prefer_weight 0.5 \
     --data_lang 'zh' \
     --stopwords_file $STOPWORDS_PATH \
     --overwrite_output_dir

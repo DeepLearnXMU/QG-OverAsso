@@ -51,6 +51,14 @@ def get_model_input(data):
             })
     return model_input
 
+k_fold = 3
+output_dir = f'../../saved_data/data_en'
+
+import os
+if not os.path.exists(output_dir):
+    os.mkdir(output_dir)
+
+
 for split in ['train', 'valid', 'test']:
     data = []
     max_len = 0
@@ -64,7 +72,19 @@ for split in ['train', 'valid', 'test']:
     for x in data:
         if len(x['query']) == 0:
             x['query'].append('none')
-    output_file = f'../../saved_data/woi_data_np/{split}.json'
+    output_file = f'../../saved_data/data_en/{split}.json'
     with jsonlines.open(output_file, 'w') as writer:
         for x in data:
             writer.write(x)
+    
+    if split == 'train':
+        for i in range(k_fold):
+            with jsonlines.open(f'{output_dir}/{split}_{i}.json', 'w') as writer:
+                for j in range(len(data)):
+                    if j % k_fold != i:
+                        writer.write(data[j])
+            with jsonlines.open(f'{output_dir}/{split}_{i}_.json', 'w') as writer:
+                for j in range(len(data)):
+                    if j % k_fold == i:
+                        writer.write(data[j])
+    output_file = f'{output_dir}/{split}.json'

@@ -99,7 +99,7 @@ def mix_data(raw_data_file, predictions_file):
 if __name__ == '__main__':
     data = []
     for i in [0, 1, 2]:
-        data += mix_data(f'../woi_data_tpl_gen_3f/train_{i}_.json',
+        data += mix_data(f'../data_en_tpl_gen/train_{i}_.json',
                          f'../t5-v1_1-base-tpl-gen-{i}f/bm_{i}_generated_predictions.txt')
     print(unformat, updated)
     with jsonlines.open('train_tpl_en.json', 'w') as writer:

@@ -241,7 +241,6 @@ class DataTrainingArguments:
         },
     )
     prefer_weight: Optional[float] = field(default=0.5)
-    none_weight: Optional[float] = field(default=1.0)
     data_lang: Optional[str] = field(default='en')
     stopwords_file: Optional[str] = field(default=None)
 
@@ -515,13 +514,32 @@ def main():
                     for query in examples[summary_column][i]:
                         if query != 'none':
                             query_tokens, query_lemmas = word_tokenize(query)
-                            val_cnt, all_cnt = 0, len(query_tokens)
+                            val_cnt, all_cnt = 0, 0
                             for qt, ql in zip(query_tokens, query_lemmas):
-                                if qt in dialog_tokens or ql in dialog_lemmas or qt in stopwords:
+                                if qt in dialog_tokens or ql in dialog_lemmas:
                                     val_cnt += 1
-                            weight = (val_cnt / all_cnt) * data_args.prefer_weight + 1 - data_args.prefer_weight
+                                else:
+                                    if qt in stopwords or ql in stopwords:
+                                        continue
+                                all_cnt += 1
+                            if all_cnt == 0:
+                                val_cnt, all_cnt = 0, 0
+                                for qt, ql in zip(query_tokens, query_lemmas):
+                                    if qt in dialog_tokens or ql in dialog_lemmas:
+                                        val_cnt += 1
+                                    all_cnt += 1
+                            # weight = (val_cnt / all_cnt) * data_args.prefer_weight + 1 - data_args.prefer_weight
+                            if data_args.prefer_weight > 0:
+                                weight = min(val_cnt / all_cnt, data_args.prefer_weight) / data_args.prefer_weight
+                            else:
+                                if val_cnt / all_cnt == 0:
+                                    weight = 0
+                                else:
+                                    weight = 1
                         else:
-                            weight = data_args.none_weight
+                            weight = 1
+                        if weight == 0:
+                            continue
                         inputs.append(dialog)
                         targets.append(query)
                         weights.append(weight)
@@ -530,13 +548,26 @@ def main():
                     for query in examples[summary_column][i]:
                         if query != '不检索':
                             query_tokens = word_tokenize(query)[2:] # delete 'jian suo'
-                            val_cnt, all_cnt = 0, len(query_tokens)
+                            val_cnt, all_cnt = 0, 0
                             for qt in query_tokens:
-                                if qt in dialog_tokens or qt in stopwords:
+                                if qt in dialog_tokens:
                                     val_cnt += 1
-                            weight = (val_cnt / all_cnt) * data_args.prefer_weight + 1 - data_args.prefer_weight
+                                elif qt in stopwords:
+                                    continue
+                                all_cnt += 1
+                            if all_cnt == 0:
+                                all_cnt += 1
+                            if data_args.prefer_weight > 0:
+                                weight = min(val_cnt / all_cnt, data_args.prefer_weight) / data_args.prefer_weight
+                            else:
+                                if val_cnt / all_cnt == 0:
+                                    weight = 0
+                                else:
+                                    weight = 1
                         else:
-                            weight = data_args.none_weight
+                            weight = 1
+                        if weight == 0:
+                            continue
                         inputs.append(dialog)
                         targets.append(query)
                         weights.append(weight)

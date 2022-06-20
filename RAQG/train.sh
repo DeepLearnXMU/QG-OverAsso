@@ -1,3 +1,7 @@
 #!/usr/bin/env bash
 
-CUDA_VISIBLE_DEVICES=2 python main.py "train" "en"
+# wizard of internet
+CUDA_VISIBLE_DEVICES=0 python main.py "train" "en"
+
+# dusinc
+# CUDA_VISIBLE_DEVICES=0 python main.py "train" "en"

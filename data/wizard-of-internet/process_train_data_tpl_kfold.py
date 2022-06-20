@@ -106,7 +106,7 @@ def get_model_input(data):
     return final_output
 
 k_fold = 3
-output_dir = f'../../saved_data/woi_data_tpl_gen_{k_fold}f'
+output_dir = f'../../saved_data/data_en_tpl_gen'
 
 import os
 if not os.path.exists(output_dir):
@@ -126,6 +126,11 @@ for split in ['valid', 'test', 'train']:
     for x in data:
         if len(x['query']) == 0:
             x['query'].append('none')
+    
+    with jsonlines.open(output_file, 'w') as writer:
+        for x in data:
+            writer.write(x)
+    
     if split == 'train':
         for i in range(k_fold):
             with jsonlines.open(f'{output_dir}/{split}_{i}.json', 'w') as writer:
@@ -137,6 +142,3 @@ for split in ['valid', 'test', 'train']:
                     if j % k_fold == i:
                         writer.write(data[j])
     output_file = f'{output_dir}/{split}.json'
-    with jsonlines.open(output_file, 'w') as writer:
-        for x in data:
-            writer.write(x)

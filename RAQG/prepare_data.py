@@ -39,7 +39,7 @@ def mix_data(raw_data_file, predictions_file):
 if __name__ == '__main__':
     data = []
     for i in [0, 1, 2]:
-        data += mix_data(f'../saved_data/woi_data_3f/train_{i}_.json',
+        data += mix_data(f'../saved_data/data_en/train_{i}_.json',
                          f'../saved_data/t5-v1_1-base-{i}f/bm_{i}_generated_predictions.txt')
     with jsonlines.open('train_en.json', 'w') as writer:
         for line in data:

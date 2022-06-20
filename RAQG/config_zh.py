@@ -1,4 +1,4 @@
-data_dir = '../saved_data/data_4mz'
+data_dir = '../saved_data/data_zh'
 
 class Arguments:
     train_file = f'train.json'

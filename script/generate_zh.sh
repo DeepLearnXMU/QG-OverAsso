@@ -2,11 +2,11 @@
 
 for i in 0 1 2 3 4
 do
-    DATA_DIR='../saved_data/data_4mz_5f'
+    DATA_DIR='../saved_data/data_zh'
     MODEL_DIR=../saved_data/mengzi-t5-base-${i}f
 
     cd transformers
-    CUDA_VISIBLE_DEVICES=1 python examples/pytorch/wizard_of_internet/run_bm.py \
+    CUDA_VISIBLE_DEVICES=0 python examples/pytorch/wizard_of_internet/run_bm.py \
       --model_name_or_path $MODEL_DIR \
       --do_predict \
       --train_file "$DATA_DIR/dev.json" \

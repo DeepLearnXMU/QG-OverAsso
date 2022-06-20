@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-DATA_DIR='../saved_data/woi_data_tpl_gen'
+DATA_DIR='../saved_data/data_en_tpl_gen'
 OUTPUT_DIR='../saved_data'
 
 cd transformers
@@ -10,7 +10,7 @@ CUDA_VISIBLE_DEVICES=0 python examples/pytorch/wizard_of_internet/run.py \
     --do_predict \
     --train_file "$DATA_DIR/train.json" \
     --validation_file "$DATA_DIR/valid.json" \
-    --test_file "$DATA_DIR/valid.json" \
+    --test_file "$DATA_DIR/test.json" \
     --source_prefix "" \
     --output_dir "$OUTPUT_DIR/t5-v1_1-base-tpl-gen" \
     --per_device_train_batch_size=8 \

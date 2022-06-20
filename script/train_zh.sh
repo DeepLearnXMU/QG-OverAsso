@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
-DATA_DIR='../saved_data/data_4mz'
+DATA_DIR='../saved_data/data_zh'
 OUTPUT_DIR='../saved_data'
 STOPWORDS_PATH='examples/pytorch/wizard_of_internet/cn_stopwords.txt'
 
 cd transformers
-CUDA_VISIBLE_DEVICES=2 python examples/pytorch/wizard_of_internet/run.py \
+CUDA_VISIBLE_DEVICES=0 python examples/pytorch/wizard_of_internet/run.py \
     --model_name_or_path Langboat/mengzi-t5-base \
     --do_train \
     --do_predict \

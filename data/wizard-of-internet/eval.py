@@ -47,69 +47,49 @@ def uni_F1_score(preds, labels):
         f1_score.append(_f1_score)
     return np.mean(f1_score)
 
-ext_gen = True
-cal_ext = False
-
-def ext_gen_recover(x):
-    if not ext_gen:
-        return x
-    try:
-        if isinstance(x, str):
-            if x == 'none':
-                return x
-            if cal_ext:
-                y = ' '.join([_x.strip() for _x in x.split('|')[0].strip().split(',')])
-                return y if y else 'none'
-            else:
-                return x.split('|')[1].strip()
-        elif isinstance(x, list):
-            return [_x.split('|')[1].strip() if _x != 'none' else _x for _x in x]
-    except:
-        return x
-
 if __name__ == '__main__':
     bleu1 = BLEU(max_ngram_order=1)
     bleu2 = BLEU(max_ngram_order=2)
-    for step in range(1000, 9000, 1000):
-        data_path = '../../saved_data/woi_data_np/valid.json'
-        predict_path = f'../../saved_data/t5-v1_1-base-np/checkpoint-{step}/generated_predictions.txt'
+    
+    step = 5000 # e.g. 5000
+    data_path = '../../saved_data/data_en/test.json'
+    predict_path = f'../../saved_data/t5-v1_1-base/checkpoint-{step}/generated_predictions.txt'
 
-        preds = []
-        labels = []
-        max_ref_num = 0
-        with jsonlines.open(data_path, 'r') as reader:
-            for line in reader:
-                # line['query'] = ext_gen_recover(line['query'])
-                labels.append(line['query'])
-                max_ref_num = max(max_ref_num, len(line['query']))
+    preds = []
+    labels = []
+    max_ref_num = 0
+    with jsonlines.open(data_path, 'r') as reader:
+        for line in reader:
+            labels.append(line['query'])
+            max_ref_num = max(max_ref_num, len(line['query']))
 
-        with open(predict_path, 'r') as f:
-            for i, line in enumerate(f.readlines()):
-                preds.append(ext_gen_recover(line.strip()))
+    with open(predict_path, 'r') as f:
+        for i, line in enumerate(f.readlines()):
+            preds.append(line.strip())
 
-        r = 0
-        decode_preds, decode_refs = [], []
-        for pred, label in zip(preds, labels):
-            if (label[0] == 'none' and pred == 'none') or (label[0] != 'none' and pred != 'none'):
-                r += 1
-            if label[0] != 'none':
-                if pred == 'none':
-                    pred = ''
-                decode_preds.append(pred)
-                decode_refs.append(label)
+    r = 0
+    decode_preds, decode_refs = [], []
+    for pred, label in zip(preds, labels):
+        if (label[0] == 'none' and pred == 'none') or (label[0] != 'none' and pred != 'none'):
+            r += 1
+        if label[0] != 'none':
+            if pred == 'none':
+                pred = ''
+            decode_preds.append(pred)
+            decode_refs.append(label)
 
-        bleu_labels = []
-        for i in range(max_ref_num):
-            bleu_labels.append([])
-            for j in range(len(decode_refs)):
-                if len(decode_refs[j]) > i:
-                    bleu_labels[i].append(decode_refs[j][i])
-                else:
-                    bleu_labels[i].append(decode_refs[j][-1])
+    bleu_labels = []
+    for i in range(max_ref_num):
+        bleu_labels.append([])
+        for j in range(len(decode_refs)):
+            if len(decode_refs[j]) > i:
+                bleu_labels[i].append(decode_refs[j][i])
+            else:
+                bleu_labels[i].append(decode_refs[j][-1])
 
-        print(f'----step {step}----')
-        print(f'ACC : {r/len(labels)}')
-        print(distinct([x.split() for x in decode_preds]))
-        print(bleu1.corpus_score(decode_preds, bleu_labels))
-        print(bleu2.corpus_score(decode_preds, bleu_labels))
-        print(uni_F1_score(decode_preds, decode_refs))
+    print(f'----step {step}----')
+    print(f'ACC : {r/len(labels)}')
+    print(distinct([x.split() for x in decode_preds]))
+    print(bleu1.corpus_score(decode_preds, bleu_labels))
+    print(bleu2.corpus_score(decode_preds, bleu_labels))
+    print(uni_F1_score(decode_preds, decode_refs))

@@ -1,10 +1,10 @@
-data_dir = '../saved_data/woi_data_np'
+data_dir = '../saved_data/data_en'
 
 
 class Arguments:
     train_file = f'train.json'
     valid_file = f'{data_dir}/valid.json'
-    test_file = f'{data_dir}/valid.json'
+    test_file = f'{data_dir}/test.json'
     do_train = True
     do_eval = True
     do_predict = True

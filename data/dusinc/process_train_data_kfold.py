@@ -67,7 +67,7 @@ def get_spans(s1, label_lists):
 
 
 # dialogue history -> search query
-def preprocess(file_path, output_path):
+def preprocess(file_path):
     data = []
     template = Template('${role}：${text}')
     length, target_length = [], []
@@ -125,17 +125,31 @@ def preprocess(file_path, output_path):
             target_length.append(len(tokenizer.tokenize(query)))
     print(max(length), max(target_length))
     print(len(data))
-    with jsonlines.open(output_path, 'w') as writer:
-        for line in data:
-            writer.write(line)
+    return data
 
 
 if __name__ == '__main__':
-    output_dir = '../../saved_data/data_4mz'
+    k_fold = 5
+    output_dir = f'../../saved_data/data_zh_{k_fold}f'
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     for split in ['dev', 'train']:
         file_path = f'../../saved_data/DuSinc_release/{split}.txt'
         output_path = f'{output_dir}/{split}.json'
-        preprocess(file_path, output_path)
+        data = preprocess(file_path)
+        if split == 'train':
+            for i in range(k_fold):
+                with jsonlines.open(f'{output_dir}/{split}_{i}.json', 'w') as writer:
+                    for j in range(len(data)):
+                        if j % k_fold != i:
+                            writer.write(data[j])
+                with jsonlines.open(f'{output_dir}/{split}_{i}_.json', 'w') as writer:
+                    for j in range(len(data)):
+                        if j % k_fold == i:
+                            writer.write(data[j])
+        else:
+            output_file = f'{output_dir}/{split}.json'
+            with jsonlines.open(output_file, 'w') as writer:
+                for x in data:
+                    writer.write(x)
 
