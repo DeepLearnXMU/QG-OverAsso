@@ -1,6 +1,6 @@
 ## Mitigating Side Impact of Over-association in Conversation Query Generation
 
-This repository includes codes for the paper ''Mitigating the Negative Impact of Over-association for Conversational Query Production".
+Codes for "Mitigating the Negative Impact of Over-association for Conversational Query Production" (Information Processing & Management).
 
 #### Base / Data-based
 * Data preparation: Download datasets (Wizard-of-Internet or DuSinc) and place data file under "saved_data" directory. Run scripts under ''databased/prepare_data_xxx.py'' to process data.
